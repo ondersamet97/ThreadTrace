@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ThreadTrace</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f7f7f7; color: #111111; display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 100vw; overflow: hidden; }
+      header { flex: none; background: inherit; padding: 18px 18px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: start; }
+      header h1 { font-size: 20px; font-weight: 750; letter-spacing: -0.01em; margin: 0; grid-column: 1; }
+      header p { font-size: 12px; color: #666666; margin: 4px 0 0; grid-column: 1; }
+      header .tm-btn { grid-column: 2; grid-row: 1 / span 2; margin-top: 2px; }
+      main { flex: 1 1 auto; min-height: 0; min-width: 0; padding: 6px 14px 24px; overflow-y: auto; overflow-x: hidden; }
+      main > section { min-width: 0; }
+      .how-to { flex:none; margin:0 16px; font-size:12px; } .how-to summary { cursor:pointer; padding:6px 0; font-weight:600; } .how-to ol { padding-left:20px; line-height:1.5; }
+      .tabs { flex: none; display: flex; gap: 0; margin: 2px 14px 4px; padding: 3px; background: #e9e9e9; border-radius: 12px; }
+      .tabs [role="tab"] { flex: 1 1 0; font: inherit; font-size: 14px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #595959; cursor: pointer; }
+      .tabs [role="tab"][aria-selected="true"] { background: #ffffff; color: #111111; font-weight: 650; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10); }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #666666; margin: 16px 2px 8px; }
+      #memory-title { display: none; }
+      #removed-title { font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: inherit; border-top: 1px solid #dedede; margin-top: 20px; padding-top: 16px; }
+      ul { list-style: none; margin: 0; padding: 0; }
+      li { font-size: 13px; overflow-wrap: anywhere; }
+      #saved-list li, #removed-list li { position: relative; background: #ffffff; border: 1px solid #dedede; border-radius: 16px; padding: 18px 18px 52px; margin: 0 0 12px; }
+      #saved-list li a { display: block; color: inherit; font-size: 16px; font-weight: 650; line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; }
+      #saved-list li a::after { content: " ↗"; font-size: 12px; font-weight: 400; color: #666666; }
+      li a { color: inherit; overflow-wrap: anywhere; }
+      .meta { font-size: 13px; line-height: 1.6; color: #666666; overflow-wrap: anywhere; margin-top: 8px; }
+      #saved-list .tm-post-remove, #removed-list .tm-post-restore { position: absolute; right: 14px; bottom: 10px; background: transparent; border: 0; color: #666666; font-size: 12.5px; min-height: 32px; padding: 6px 8px; margin: 0; }
+      #saved-list .tm-post-remove:hover, #removed-list .tm-post-restore:hover { color: #111111; text-decoration: underline; }
+      button.person-row { display: block; width: 100%; text-align: left; background: #ffffff; border: 1px solid #dedede; border-radius: 16px; padding: 14px 16px; font: inherit; cursor: pointer; color: inherit; }
+      #people-list li { margin: 0 0 10px; }
+      #people-list .tag-row { background: #fff; border: 1px solid #dedede; border-radius: 16px; padding: 14px; }
+      #people-list .tag-row > .tm-btn { float: right; margin: 0; }
+      @media (prefers-color-scheme: dark) { #people-list .tag-row { background: #181818; border-color: #303030; } }
+      .chip { background: #eeeeee; color: #262626; border-radius: 999px; padding: 1px 7px; font-size: 11px; margin-right: 4px; }
+      .person-labels { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 8px 14px; }
+      #labels-draft, #label-feed-people { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+      #label-feed-people[hidden] { display: none; }
+      button.chip { border: 1px solid currentColor; font: inherit; font-size: 12px; min-height: 30px; padding: 4px 10px; margin: 0; cursor: pointer; overflow-wrap: anywhere; }
+      #label-colors { border: 1px solid #dedede; border-radius: 16px; padding: 14px; margin-top: 16px; }
+      #label-colors h3 { font-size: 14px; margin: 0; }
+      #label-color-select { width: 100%; min-height: 40px; border: 1px solid #b8b8b8; border-radius: 10px; background: #ffffff; color: #111111; font: inherit; padding: 8px; }
+      #label-color-presets, .label-color-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      #label-color-presets .chip[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+      #label-color-custom { width: 60px; height: 40px; padding: 3px; border: 1px solid #b8b8b8; border-radius: 8px; background: transparent; cursor: pointer; }
+      #label-color-preview { display: inline-block; padding: 5px 10px; margin: 8px 0 0; overflow-wrap: anywhere; }
+      #label-feed-title { text-transform: none; font-size: 18px; letter-spacing: 0; color: inherit; }
+      #label-feed-list li { background: #ffffff; border: 1px solid #dedede; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+      #label-feed-list a { display: block; font-size: 15px; line-height: 1.5; }
+      #person-editor { border-top: 1px solid #dedede; margin-top: 12px; padding-top: 8px; }
+      label { display: block; font-size: 12px; font-weight: 600; margin: 10px 0 4px; }
+      input[type="text"], input[type="password"], textarea { width: 100%; font: inherit; color: #111111; background: #ffffff; border: 1px solid #b8b8b8; border-radius: 10px; padding: 10px 12px; line-height: 1.5; }
+      .tm-btn { font: inherit; color: #111111; background: #eeeeee; border: 1px solid #d5d5d5; border-radius: 10px; min-height: 36px; padding: 8px 12px; cursor: pointer; margin-top: 6px; font-size: 13px; font-weight: 550; }
+      #settings-view { flex: 1 1 auto; min-width: 0; padding: 10px 18px 24px; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+      #settings-view select { width: 100%; font: inherit; margin-bottom: 6px; }
+      .demo-banner { border: 1px solid #b8b8b8; border-radius: 8px; padding: 8px; font-size: 13px; }
+      .status { font-size: 12px; line-height: 1.45; color: #595959; min-height: 1em; }
+      button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #111111; outline-offset: 2px; }
+      #removed-list .meta { display: block; }
+      textarea { resize: vertical; min-height: 100px; max-width: 100%; }
+      .status, header p { overflow-wrap: anywhere; line-height: 1.6; }
+      .status:empty { margin: 0; min-height: 0; }
+      .tm-btn:hover:not(:disabled), button.person-row:hover { border-color: #888888; }
+      button:disabled { cursor: default; opacity: .6; }
+      #settings-title, #editor-title { text-transform: none; font-size: 18px; letter-spacing: -.01em; color: inherit; }
+      #settings-api-note { padding: 12px; border: 1px solid #dedede; border-radius: 12px; }
+      #watch-list li { background: #fff; border: 1px solid #dedede; border-radius: 16px; padding: 16px; margin: 0 0 12px; }
+      #watch-list a { display: block; font-size: 15px; font-weight: 650; line-height: 1.5; }
+      .project-credit { flex: none; border-top: 1px solid #dedede; padding: 11px 18px; font-size: 11px; line-height: 1.5; color: #666; }
+      .language-picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 8px 0 16px; border: 1px solid #dedede; border-radius: 14px; background: #fff; }
+      .language-picker label { margin: 0; font-size: 13px; }
+      .language-picker select { width: auto !important; margin: 0 !important; border: 1px solid #b8b8b8; border-radius: 9px; padding: 7px 9px; color: inherit; background: transparent; }
+      header { padding-block: 22px 15px; }
+      header h1 { font-size: 21px; letter-spacing: -.035em; }
+      header p { line-height: 1.45; max-width: 260px; }
+      .tabs { margin-block: 4px 12px; }
+      #saved-list li, #removed-list li, button.person-row { box-shadow: 0 2px 10px rgba(0,0,0,.035); }
+      .tm-btn { transition: background-color .15s, border-color .15s; }
+      input:disabled { opacity: 1; color: #595959; background: #eeeeee; }
+      @media (max-width: 300px) { header { padding: 14px 12px; gap: 8px; } header h1 { font-size: 18px; } .tabs { margin-inline: 10px; } main { padding-inline: 10px; } }
+      @media (prefers-color-scheme: dark) {
+        body { background: #101010; color: #f5f5f5; }
+        .language-picker { background: #181818; border-color: #303030; }
+        .language-picker select { background: #262626; border-color: #666; }
+        #watch-list li { background: #181818; border-color: #303030; }
+        .project-credit { color: #b3b3b3; border-color: #303030; }
+        #settings-api-note, #label-colors { border-color: #303030; }
+        #label-color-select { color: #f5f5f5; background: #181818; border-color: #666666; }
+        #label-feed-list li { background: #181818; border-color: #303030; }
+        input:disabled { color: #b3b3b3; background: #262626; }
+        header p, h2, #removed-title, .meta, .status { color: #b3b3b3; }
+        #removed-title { border-top-color: #303030; }
+        .tabs { background: #191919; }
+        .tabs [role="tab"] { background: transparent; color: #b3b3b3; }
+        .tabs [role="tab"][aria-selected="true"] { background: #2c2c2c; color: #f5f5f5; box-shadow: none; }
+        #saved-list li, #removed-list li, button.person-row { background: #181818; border-color: #303030; }
+        #saved-list .tm-post-remove, #removed-list .tm-post-restore { background: transparent; border: 0; color: #b3b3b3; }
+        #saved-list .tm-post-remove:hover, #removed-list .tm-post-restore:hover { color: #f5f5f5; }
+        .chip { background: #303030; color: #eeeeee; }
+        #person-editor { border-top-color: #303030; }
+        input[type="text"], input[type="password"], textarea { color: #f5f5f5; background: #181818; border-color: #666666; }
+        .tm-btn { color: #f5f5f5; background: #303030; border-color: #666666; }
+        #saved-list .tm-post-remove, #removed-list .tm-post-restore { background: transparent; border: 0; }
+        button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline-color: #f5f5f5; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ThreadTrace</h1>
+      <p>Yalnız bu cihazda saklanır; Threads Saved ile senkronize değildir.</p>
+      <button id="settings-open" type="button" class="tm-btn" aria-label="Ayarlar'ı aç">Ayarlar</button>
+    </header>
+    <details class="how-to" id="how-to"><summary id="how-to-title">Nasıl kullanılır?</summary><ol>
+      <li id="how-to-tags">Threads'te kişinin yanındaki simgeye basın, etiket ve not ekleyip kaydedin. Etiketler yan panelde listelenir.</li>
+      <li id="how-to-feed">Etikete basarak ilişkili hesapları açın. Threads sayfasında etikete basarak o sayfada yüklü gönderileri filtreleyin.</li>
+      <li id="how-to-muse">Ayarlar'da Meta API anahtarınızı kaydedip izin verin. Gönderideki radar düğmesinden metni inceleyip araştırmayı onaylayın.</li>
+      <li id="how-to-follow">Takip süresi ve türünü seçin; isterseniz günlük otomatik kontrolü işaretleyin. Kontroller API ücreti doğurabilir.</li>
+      <li id="how-to-privacy">Veriler cihazda tutulur. Anahtar şifrelenmeden saklanır; kaldırma ve tüm veriyi silme ayarlardadır.</li>
+    </ol></details>
+    <nav class="tabs" role="tablist" aria-label="Yan panel görünümleri">
+      <button id="tab-people" type="button" role="tab" aria-selected="true" aria-controls="panel-people">Kişiler</button>
+      <button id="tab-memory" type="button" role="tab" aria-selected="false" aria-controls="panel-memory" tabindex="-1">Takipler</button>
+    </nav>
+    <main id="main">
+      <section id="panel-memory" role="tabpanel" aria-labelledby="tab-memory" hidden>
+        <h2 id="watch-title">Takip listesi</h2>
+        <p id="watch-notice" class="status">Otomatik takip seçilirse günde bir kontrol yapılır. Tarayıcı açık ve API anahtarı girilmiş olmalıdır.</p>
+        <ul id="watch-list"></ul>
+        <p id="watch-empty" class="status">Henüz takip listenizde bir olay yok.</p>
+        <div hidden>
+        <h2 id="memory-title">Hafıza</h2>
+        <ul id="saved-list"></ul>
+        <p id="saved-empty" class="status">Henüz kaydedilmiş gönderi yok.</p>
+        <h2 id="removed-title">Kaldırılanlar</h2>
+        <ul id="removed-list"></ul>
+        <p id="removed-empty" class="status">Kaldırılan kayıt yok.</p>
+        </div>
+      </section>
+
+      <section id="panel-people" role="tabpanel" aria-labelledby="tab-people">
+        <h2 id="people-title" tabindex="-1">Kişiler</h2>
+        <ul id="people-list"></ul>
+        <p id="people-empty" class="status">Henüz kişi yok.</p>
+
+      <section id="person-editor" hidden aria-labelledby="editor-title">
+        <button id="back" type="button" class="tm-btn">← Kişilere dön</button>
+        <h2 id="editor-title">Kişi</h2>
+        <p id="editor-person" class="meta"></p>
+
+        <label for="labels-input">Yeni kişi etiketi</label>
+        <input id="labels-input" type="text" maxlength="64" placeholder="Etiketi yazıp Enter'a basın" aria-describedby="labels-help" />
+        <p id="labels-help" class="status">Enter ile ekleyin; etikete tıklayarak veya klavyeyle seçerek bu kişiden kaldırın. Değişiklikler Etiketleri kaydet ile saklanır. Virgül etiketin bir parçasıdır.</p>
+        <div id="labels-draft" role="group" aria-label="Bu kişinin etiket taslağı"></div>
+        <button id="labels-save" type="button" class="tm-btn">Etiketleri kaydet</button>
+        <p id="labels-status" class="status" role="status" aria-live="polite"></p>
+
+        <section id="label-colors" aria-labelledby="label-colors-title">
+          <h3 id="label-colors-title">Etiket renkleri</h3>
+          <p class="status">Renk aynı kişi etiketini kullanan herkes için geçerlidir. Önizleme, Rengi kaydet düğmesine basana kadar kaydedilmez.</p>
+          <p id="label-color-empty" class="status">Renk seçmek için önce bir kişi etiketi kaydedin.</p>
+          <div id="label-color-controls" hidden>
+            <label for="label-color-select">Kaydedilmiş etiket</label>
+            <select id="label-color-select"></select>
+            <div id="label-color-presets" role="group" aria-label="Etiket renkleri"></div>
+            <label for="label-color-custom">Özel renk</label>
+            <input id="label-color-custom" type="color" value="#808080" />
+            <div><span id="label-color-preview" class="chip"></span></div>
+            <div class="label-color-actions">
+              <button id="label-color-save" type="button" class="tm-btn">Rengi kaydet</button>
+              <button id="label-feed-open" type="button" class="tm-btn">Etiketin gönderileri</button>
+            </div>
+          </div>
+          <p id="label-color-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+
+        <label for="note-text">Not defteri</label>
+        <textarea id="note-text" rows="7"></textarea>
+        <button id="note-save" type="button" class="tm-btn">Notu kaydet</button>
+        <p id="note-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+      <section id="label-feed" hidden aria-labelledby="label-feed-title">
+        <button id="label-feed-back" type="button" class="tm-btn">← Geri dön</button>
+        <h2 id="label-feed-title" tabindex="-1"></h2>
+        <p id="label-feed-scope" class="status">Kişi etiketi · Yalnız yerel hafızadaki gönderiler; konu araması değil</p>
+        <button id="label-feed-show-posts" type="button" class="tm-btn">Threads sayfasındaki gönderileri göster</button>
+        <button id="label-feed-edit" type="button" class="tm-btn">Etiketi düzenle</button>
+        <p id="label-feed-edit-help" class="status">Kişinin etiket üyeliğini ve ortak etiket rengini düzenleyin. Üyelik değişikliği yalnız seçilen kişiye uygulanır; renk aynı etiketi kullanan herkes için geçerlidir.</p>
+        <div id="label-feed-people" role="group" aria-label="Etiketi düzenlemek için kişi seçin" hidden></div>
+        <p id="label-feed-status" class="status" role="status" aria-live="polite"></p>
+        <ul id="label-feed-list"></ul>
+        <p id="label-feed-empty" class="status" hidden>Bu kişi etiketi için yerel hafızada gönderi yok.</p>
+      </section>
+      </section>
+
+      <p id="panel-status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <section id="settings-view" hidden aria-labelledby="settings-title">
+      <button id="settings-back" type="button" class="tm-btn">← Geri dön</button>
+      <h2 id="settings-title">Ayarlar</h2>
+      <div class="language-picker"><label for="language-select">Language / Dil</label><select id="language-select" aria-label="Language / Dil"><option value="en">English</option><option value="tr">Türkçe</option></select></div>
+      <p id="language-refresh-hint" class="status">Dil değişikliğini Threads sayfasına uygulamak için sayfayı yenileyin.</p>
+
+      <label for="settings-provider">Sağlayıcı</label>
+      <input id="settings-provider" type="text" value="Meta Muse (varsayılan sağlayıcı)" readonly disabled />
+      <p class="status">Ürün modeli: muse-spark-1.3. Resmi ortaklık iddiası yoktur.</p>
+
+      <label for="settings-api-key">Kendi Meta anahtarınız</label>
+      <input id="settings-api-key" type="password" autocomplete="off" placeholder="Anahtarınızı girin" aria-describedby="settings-api-note" />
+      <p id="settings-api-note" class="status">
+        API anahtarınız bu cihazdaki eklenti depolamasında kalıcı olarak saklanır; istediğiniz zaman kaldırabilirsiniz.
+        Anahtar şifrelenmeden saklanır; cihazınıza veya tarayıcı profilinize erişen kişiler anahtara erişebilir.
+      </p>
+
+      <p>
+        <button id="settings-save-key" type="button" class="tm-btn">API anahtarını kaydet</button>
+        <button id="settings-clear-key" type="button" class="tm-btn">API anahtarını kaldır</button>
+      </p>
+      <p>
+        <button id="settings-permission" type="button" class="tm-btn">api.meta.ai iznini iste</button>
+      </p>
+      <p id="settings-key-state" class="status">API anahtarı: yok</p>
+      <p id="settings-permission-state" class="status">api.meta.ai izni: yok</p>
+      <p><button id="settings-clear-all" type="button" class="tm-btn">Tüm veriyi sil</button></p>
+      <p id="settings-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <footer class="project-credit"><span id="project-credit">Önder Samet tarafından geliştirildi</span> · <span>Built with Muse</span></footer>
+    <script src="model.js"></script>
+    <script src="i18n.js"></script>
+    <script src="client.js"></script>
+    <script src="sidepanel.js"></script>
+    <script src="sidepanel-language.js"></script>
+  </body>
+</html>
